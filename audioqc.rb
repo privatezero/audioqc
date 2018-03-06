@@ -5,6 +5,7 @@ require 'tempfile'
 
 # Function to scan file for mediaconch compliance
 def MediaConchScan
+  #Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
   mcpolicy = <<EOS
   <?xml version="1.0"?>
   <policy type="and" name="Audio: &quot;normal&quot; WAV?" license="CC-BY-4.0+">
