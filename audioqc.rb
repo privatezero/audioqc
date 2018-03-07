@@ -39,12 +39,11 @@ Any WAVs not matching this policy should be inspected and possibly normalized to
   <rule name="Audio is 'Little Endian'?" value="Format_Settings_Endianness" tracktype="Audio" occurrence="*" operator="=">Little</rule>
 </policy>
 EOS
-  puts mcpolicy
   policyfile = Tempfile.new('mediaconch')
   policyfile.write(mcpolicy)
   policyfile.rewind
   command = 'mediaconch --Policy=' + policyfile.path + ' ' + input 
-  puts command
+  mcoutcome = `#{command}`
 end
 
 # Function to scan audio stream characteristics
