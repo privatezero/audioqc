@@ -60,15 +60,15 @@ def CheckAudioQuality(input)
     if peaklevel > -5.5
       $highdb << peaklevel
     end
-    if audiophase < -0.3
+    if audiophase < -0.25
       $phasewarnings << audiophase
     end
   end
   if $highdb.count > 0
     puts "WARNING! HIGH LEVELS DETECTED IN #{input}"
   end
-  if $phasewarnings.count > 0
-    puts puts "WARNING! HIGH LEVELS DETECTED IN #{input}"
+  if $phasewarnings.count > 50
+    puts "WARNING! OUT OF PHASE CHANNELS DETECTED IN #{input}"
     puts $phasewarnings.count
   end
 end
