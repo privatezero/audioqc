@@ -2,6 +2,11 @@
 
 require 'json'
 require 'tempfile'
+require 'csv'
+
+# set up arrays
+$file_results = Array.new
+$write_to_csv = Array.new
 
 # Function to scan file for mediaconch compliance
 def MediaConchScan(input)
@@ -44,16 +49,17 @@ EOS
     $policyfile.write(mcpolicy)
     $policyfile.rewind
   end
-  command = 'mediaconch --Policy=' + $policyfile.path + ' ' + input 
+  command = 'mediaconch --Policy=' + $policyfile.path + ' ' + '"' + input + '"'
   mcoutcome = `#{command}`
-  puts mcoutcome
+  $file_results << mcoutcome
 end
 
 # Function to scan audio stream characteristics
 def CheckAudioQuality(input)
   $highdb = Array.new
   $phasewarnings = Array.new
-  ffprobeout = JSON.parse(`ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie='#{input}',astats=metadata=1,aphasemeter=video=0"`)
+  ffprobe_command = 'ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=metadata=1,aphasemeter=video=0"'
+  ffprobeout = JSON.parse(`#{ffprobe_command}`)
   ffprobeout['frames'].each_with_index do |metadata, index|
     peaklevel = ffprobeout['frames'][index]['tags']['lavfi.astats.Overall.Peak_level'].to_f
     audiophase = ffprobeout['frames'][index]['tags']['lavfi.aphasemeter.phase'].to_f
@@ -65,15 +71,25 @@ def CheckAudioQuality(input)
     end
   end
   if $highdb.count > 0
-    puts "WARNING! HIGH LEVELS DETECTED IN #{input}"
+    $file_results << "WARNING! HIGH LEVELS DETECTED"
+  else
+    $file_results << 'Levels OK'
   end
   if $phasewarnings.count > 50
-    puts "WARNING! OUT OF PHASE CHANNELS DETECTED IN #{input}"
-    puts $phasewarnings.count
+    $file_results << $phasewarnings.count
+  else
+    $file_results << 'Phase OK'
   end
 end
 
 ARGV.each do |fileinput|
+  $file_results << fileinput
   CheckAudioQuality(fileinput)
   MediaConchScan(fileinput)
+  $write_to_csv << $file_results
+  $file_results = Array.new
+end
+
+$write_to_csv.each do |csv|
+  puts csv
 end
