@@ -51,7 +51,9 @@ EOS
   end
   command = 'mediaconch --Policy=' + $policyfile.path + ' ' + '"' + input + '"'
   mcoutcome = `#{command}`.tr('--','').tr(' ','')
-  $file_results << mcoutcome
+  mcoutcome.split('/n').each do |qcline|
+    $file_results << qcline
+  end
 end
 
 # Function to scan audio stream characteristics
@@ -90,6 +92,8 @@ ARGV.each do |fileinput|
   $file_results = Array.new
 end
 
-$write_to_csv.each do |csv|
-  puts csv
+CSV.open('/home/weaver/Desktop/test.csv', 'wb') do |csv|
+  $write_to_csv.each do |line|
+    csv << line
+  end
 end
