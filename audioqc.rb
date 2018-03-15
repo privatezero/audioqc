@@ -50,7 +50,7 @@ EOS
     $policyfile.rewind
   end
   command = 'mediaconch --Policy=' + $policyfile.path + ' ' + '"' + input + '"'
-  mcoutcome = `#{command}`
+  mcoutcome = `#{command}`.tr('--','').tr(' ','')
   $file_results << mcoutcome
 end
 
