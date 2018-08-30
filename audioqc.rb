@@ -73,7 +73,7 @@ def CheckAudioQuality(input)
     end
   end
   if $highdb.count > 0
-    $file_results << "WARNING! HIGH LEVELS DETECTED"
+    $file_results << "WARNING! Levels up to #{$highdb.max}"
   else
     $file_results << 'Levels OK'
   end
