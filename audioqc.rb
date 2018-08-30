@@ -83,8 +83,20 @@ def CheckAudioQuality(input)
     $file_results << 'Phase OK'
   end
 end
+fileinputs = Array.new
 
-ARGV.each do |fileinput|
+ARGV.each do |input|
+  if File.directory?(input)
+    targets = Dir["#{input}/*.wav"]
+    targets.each do |file|
+      fileinputs << file
+    end
+  else
+    fileinputs << input
+  end
+end
+
+fileinputs.each do |fileinput|
   $file_results << fileinput
   CheckAudioQuality(fileinput)
   MediaConchScan(fileinput)
