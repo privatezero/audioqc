@@ -92,7 +92,9 @@ ARGV.each do |input|
       fileinputs << file
     end
   else
-    fileinputs << input
+    if File.extname(input) == '.wav'
+      fileinputs << input
+    end
   end
 end
 
