@@ -106,7 +106,7 @@ fileinputs.each do |fileinput|
   $file_results = Array.new
 end
 
-CSV.open(File.expand_path("~/Desktop/test.csv"), 'wb') do |csv|
+CSV.open(File.expand_path("~/Desktop/audioqc-out.csv"), 'wb') do |csv|
   $write_to_csv.each do |line|
     csv << line
   end
