@@ -60,12 +60,12 @@ end
 def CheckAudioQuality(input)
   $highdb = Array.new
   $phasewarnings = Array.new
-  ffprobe_command = 'ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=metadata=1,aphasemeter=video=0"'
+  ffprobe_command = 'ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=reset=1:metadata=1,aphasemeter=video=0"'
   ffprobeout = JSON.parse(`#{ffprobe_command}`)
   ffprobeout['frames'].each do |frames|
     peaklevel = frames['tags']['lavfi.astats.Overall.Peak_level'].to_f
     audiophase = frames['tags']['lavfi.aphasemeter.phase'].to_f
-    if peaklevel > -5.5
+    if peaklevel > -2.0
       $highdb << peaklevel
     end
     if audiophase < -0.25
@@ -74,7 +74,9 @@ def CheckAudioQuality(input)
   end
   if $highdb.count > 0
     $file_results << "WARNING! Levels up to #{$highdb.max}"
+    $file_results << "#{$highdb.count} out of #{ffprobeout['frames'].count}"
   else
+    $file_results << 'Levels OK'
     $file_results << 'Levels OK'
   end
   if $phasewarnings.count > 50
