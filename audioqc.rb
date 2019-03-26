@@ -6,13 +6,17 @@ require 'csv'
 require 'optparse'
 
 ARGV.options do |opts|
-  opts.on("-p", "--Policy_file=val", String)  { |val| Policy_file = val }
+  opts.on("-p", "--Policy=val", String)  { |val| POLICY_FILE = val }
+  opts.on("-e", "--Extension=val", String)  { |val| TARGET_EXTENSION = val }
   opts.parse!
 end
 
-# set up arrays
+# set up arrays and variables
 @file_results = Array.new
 @write_to_csv = Array.new
+if ! defined? TARGET_EXTENSION
+  TARGET_EXTENSION = 'wav'
+end
 
 # Set up mediaconch policy
 #Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
@@ -49,15 +53,15 @@ Any WAVs not matching this policy should be inspected and possibly normalized to
   <rule name="Audio is 'Little Endian'?" value="Format_Settings_Endianness" tracktype="Audio" occurrence="*" operator="=">Little</rule>
 </policy>
 EOS
-if ! defined? Policy_file
-  Policy_file = Tempfile.new('mediaConch')
-  Policy_file.write(mc_policy)
-  Policy_file.rewind
+if ! defined? POLICY_FILE
+  POLICY_FILE = Tempfile.new('mediaConch')
+  POLICY_FILE.write(mc_policy)
+  POLICY_FILE.rewind
 end
 
 # Function to scan file for mediaconch compliance
 def media_conch_scan(input,policy)
-  policy_path = File.path(Policy_file)
+  policy_path = File.path(POLICY_FILE)
   command = "mediaconch --Policy=#{policy_path} '#{input}'"
   media_conch_out = `#{command}`
   media_conch_out.strip!
@@ -95,18 +99,24 @@ def check_audio_quality(input)
     @file_results << 'Phase OK'
   end
 end
+
+# Start of main script
 fileinputs = Array.new
 
 ARGV.each do |input|
   if File.directory?(input)
-    targets = Dir["#{input}/*.wav"]
+    targets = Dir["#{input}/*.{#{TARGET_EXTENSION.upcase},#{TARGET_EXTENSION.downcase}}"]
     targets.each do |file|
       fileinputs << file
     end
   else
-    if File.extname(input) == '.wav'
+    if File.extname(input) == TARGET_EXTENSION
       fileinputs << input
     end
+  end
+  if fileinputs.empty?
+    puts "No targets found for input: #{input}!"
+    next
   end
 end
 
@@ -114,7 +124,7 @@ fileinputs.each do |fileinput|
   fileinput = File.expand_path(fileinput)
   @file_results << fileinput
   check_audio_quality(fileinput)
-  media_conch_scan(fileinput,Policy_file)
+  media_conch_scan(fileinput,POLICY_FILE)
   @write_to_csv << @file_results
   @file_results = Array.new
 end
