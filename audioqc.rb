@@ -130,7 +130,9 @@ fileinputs.each do |fileinput|
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
-CSV.open(File.expand_path("~/Desktop/audioqc-out_#{timestamp}.csv"), 'wb') do |csv|
+output_csv = ENV['HOME'] + "/Desktop/audioqc-out_#{timestamp}.csv"
+
+CSV.open(output_csv, 'wb') do |csv|
   headers = ['Filename','Levels Warnings','Number of Frames w/ High Levels','Number of Phase Warnings','MediaConch Policy Compliance']
   csv << headers
   @write_to_csv.each do |line|
