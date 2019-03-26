@@ -62,7 +62,7 @@ end
 # Function to scan file for mediaconch compliance
 def media_conch_scan(input,policy)
   policy_path = File.path(POLICY_FILE)
-  command = "mediaconch --Policy=#{policy_path} '#{input}'"
+  command = 'mediaconch --Policy=' + '"' + policy_path + '" ' + '"' + input + '"'
   media_conch_out = `#{command}`
   media_conch_out.strip!
   media_conch_out.split('/n').each do |qcline|
@@ -101,26 +101,26 @@ def check_audio_quality(input)
 end
 
 # Start of main script
-fileinputs = Array.new
+file_inputs = Array.new
 
 ARGV.each do |input|
   if File.directory?(input)
     targets = Dir["#{input}/*.{#{TARGET_EXTENSION.upcase},#{TARGET_EXTENSION.downcase}}"]
     targets.each do |file|
-      fileinputs << file
+      file_inputs << file
     end
   else
-    if File.extname(input) == TARGET_EXTENSION
-      fileinputs << input
+    if File.extname(input).downcase == TARGET_EXTENSION.downcase
+      file_inputs << input
     end
   end
-  if fileinputs.empty?
+  if file_inputs.empty?
     puts "No targets found for input: #{input}!"
     next
   end
 end
 
-fileinputs.each do |fileinput|
+file_inputs.each do |fileinput|
   fileinput = File.expand_path(fileinput)
   @file_results << fileinput
   check_audio_quality(fileinput)
