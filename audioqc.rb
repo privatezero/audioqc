@@ -3,15 +3,24 @@
 require 'json'
 require 'tempfile'
 require 'csv'
+require 'optparse'
 
-# set up arrays
-$file_results = Array.new
-$write_to_csv = Array.new
+ARGV.options do |opts|
+  opts.on("-p", "--Policy=val", String) { |val| POLICY_FILE = val }
+  opts.on("-e", "--Extension=val", String) { |val| TARGET_EXTENSION = val }
+  opts.parse!
+end
 
-# Function to scan file for mediaconch compliance
-def MediaConchScan(input)
-  #Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
-  mcpolicy = <<EOS
+# set up arrays and variables
+@file_results = []
+@write_to_csv = []
+if ! defined? TARGET_EXTENSION
+  TARGET_EXTENSION = 'wav'
+end
+
+# Set up mediaconch policy
+# Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
+mc_policy = <<EOS
 <?xml version="1.0"?>
 <policy type="and" name="Audio: &quot;normal&quot; WAV?" license="CC-BY-4.0+">
   <description>This is the common norm for WAVE audiofiles.&#xD;
@@ -44,78 +53,87 @@ Any WAVs not matching this policy should be inspected and possibly normalized to
   <rule name="Audio is 'Little Endian'?" value="Format_Settings_Endianness" tracktype="Audio" occurrence="*" operator="=">Little</rule>
 </policy>
 EOS
-  if ! defined? $policyfile
-    $policyfile = Tempfile.new('mediaconch')
-    $policyfile.write(mcpolicy)
-    $policyfile.rewind
-  end
-  policypath = $policyfile.path
-  command = "mediaconch --Policy=#{policypath} '#{input}'"
-  mcoutcome = `#{command}`
-  mcoutcome.strip!
-  mcoutcome.split('/n').each do |qcline|
-    $file_results << qcline
+if ! defined? POLICY_FILE
+  POLICY_FILE = Tempfile.new('mediaConch')
+  POLICY_FILE.write(mc_policy)
+  POLICY_FILE.rewind
+end
+
+# Function to scan file for mediaconch compliance
+def media_conch_scan(input, policy)
+  policy_path = File.path(policy)
+  command = 'mediaconch --Policy=' + '"' + policy_path + '" ' + '"' + input + '"'
+  media_conch_out = `#{command}`
+  media_conch_out.strip!
+  media_conch_out.split('/n').each do |qcline|
+    @file_results << qcline
   end
 end
 
 # Function to scan audio stream characteristics
-def CheckAudioQuality(input)
-  $highdb = Array.new
-  $phasewarnings = Array.new
+def check_audio_quality(input)
+  high_db = []
+  phase_warnings = []
   ffprobe_command = 'ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=reset=1:metadata=1,aphasemeter=video=0"'
-  ffprobeout = JSON.parse(`#{ffprobe_command}`)
-  ffprobeout['frames'].each do |frames|
+  ffprobe_out = JSON.parse(`#{ffprobe_command}`)
+  ffprobe_out['frames'].each do |frames|
     peaklevel = frames['tags']['lavfi.astats.Overall.Peak_level'].to_f
     audiophase = frames['tags']['lavfi.aphasemeter.phase'].to_f
     if peaklevel > -2.0
-      $highdb << peaklevel
+      high_db << peaklevel
     end
     if audiophase < -0.25
-      $phasewarnings << audiophase
+      phase_warnings << audiophase
     end
   end
-  if $highdb.count > 0
-    $file_results << "WARNING! Levels up to #{$highdb.max}"
-    $file_results << "#{$highdb.count} out of #{ffprobeout['frames'].count}"
+  if high_db.count > 0
+    @file_results << "WARNING! Levels up to #{high_db.max}"
+    @file_results << "#{high_db.count} out of #{ffprobe_out['frames'].count}"
   else
-    $file_results << 'Levels OK'
-    $file_results << 'Levels OK'
+    @file_results << 'Levels OK'
+    @file_results << 'Levels OK'
   end
-  if $phasewarnings.count > 50
-    $file_results << $phasewarnings.count
+  if phase_warnings.count > 50
+    @file_results << phase_warnings.count
   else
-    $file_results << 'Phase OK'
+    @file_results << 'Phase OK'
   end
 end
-fileinputs = Array.new
+
+# Start of main script
+file_inputs = []
 
 ARGV.each do |input|
   if File.directory?(input)
-    targets = Dir["#{input}/*.wav"]
+    targets = Dir["#{input}/*.{#{TARGET_EXTENSION.upcase},#{TARGET_EXTENSION.downcase}}"]
     targets.each do |file|
-      fileinputs << file
+      file_inputs << file
     end
-  else
-    if File.extname(input) == '.wav'
-      fileinputs << input
-    end
+  elsif File.extname(input).downcase == TARGET_EXTENSION.downcase
+    file_inputs << input
+  end
+  if file_inputs.empty?
+    puts "No targets found for input: #{input}!"
+    next
   end
 end
 
-fileinputs.each do |fileinput|
+file_inputs.each do |fileinput|
   fileinput = File.expand_path(fileinput)
-  $file_results << fileinput
-  CheckAudioQuality(fileinput)
-  MediaConchScan(fileinput)
-  $write_to_csv << $file_results
-  $file_results = Array.new
+  @file_results << fileinput
+  check_audio_quality(fileinput)
+  media_conch_scan(fileinput, POLICY_FILE)
+  @write_to_csv << @file_results
+  @file_results = []
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
-CSV.open(File.expand_path("~/Desktop/audioqc-out_#{timestamp}.csv"), 'wb') do |csv|
-  headers = ['Filename','Levels Warnings','Number of Frames w/ High Levels','Number of Phase Warnings','MediaConch Policy Compliance']
+output_csv = ENV['HOME'] + "/Desktop/audioqc-out_#{timestamp}.csv"
+
+CSV.open(output_csv, 'wb') do |csv|
+  headers = ['Filename', 'Levels Warnings', 'Number of Frames w/ High Levels', 'Number of Phase Warnings', 'MediaConch Policy Compliance']
   csv << headers
-  $write_to_csv.each do |line|
+  @write_to_csv.each do |line|
     csv << line
   end
 end
