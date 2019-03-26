@@ -49,8 +49,10 @@ EOS
     $policyfile.write(mcpolicy)
     $policyfile.rewind
   end
-  command = 'mediaconch --Policy=' + $policyfile.path + ' ' + '"' + input + '"'
-  mcoutcome = `#{command}`.tr('--','').tr(' ','')
+  policypath = $policyfile.path
+  command = "mediaconch --Policy=#{policypath} '#{input}'"
+  mcoutcome = `#{command}`
+  mcoutcome.strip!
   mcoutcome.split('/n').each do |qcline|
     $file_results << qcline
   end
@@ -111,7 +113,7 @@ end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
 CSV.open(File.expand_path("~/Desktop/audioqc-out_#{timestamp}.csv"), 'wb') do |csv|
-  headers = ['Filename','Levels Warnings','Phase Warnings','MediaConch Policy Compliance']
+  headers = ['Filename','Levels Warnings','Number of Frames w/ High Levels','Number of Phase Warnings','MediaConch Policy Compliance']
   csv << headers
   $write_to_csv.each do |line|
     csv << line
