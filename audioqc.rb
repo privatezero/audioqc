@@ -12,7 +12,6 @@ ARGV.options do |opts|
 end
 
 # set up arrays and variables
-@file_results = []
 @write_to_csv = []
 if ! defined? TARGET_EXTENSION
   TARGET_EXTENSION = 'wav'
@@ -119,12 +118,12 @@ ARGV.each do |input|
 end
 
 file_inputs.each do |fileinput|
+  @file_results = []
   fileinput = File.expand_path(fileinput)
   @file_results << fileinput
   check_audio_quality(fileinput)
   media_conch_scan(fileinput, POLICY_FILE)
   @write_to_csv << @file_results
-  @file_results = []
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
