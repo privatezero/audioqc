@@ -5,13 +5,13 @@ require 'tempfile'
 require 'csv'
 
 # set up arrays
-$file_results = Array.new
-$write_to_csv = Array.new
+@file_results = Array.new
+@write_to_csv = Array.new
 
 # Function to scan file for mediaconch compliance
-def MediaConchScan(input)
+def media_conch_scan(input)
   #Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
-  mcpolicy = <<EOS
+  mc_policy = <<EOS
 <?xml version="1.0"?>
 <policy type="and" name="Audio: &quot;normal&quot; WAV?" license="CC-BY-4.0+">
   <description>This is the common norm for WAVE audiofiles.&#xD;
@@ -44,47 +44,47 @@ Any WAVs not matching this policy should be inspected and possibly normalized to
   <rule name="Audio is 'Little Endian'?" value="Format_Settings_Endianness" tracktype="Audio" occurrence="*" operator="=">Little</rule>
 </policy>
 EOS
-  if ! defined? $policyfile
-    $policyfile = Tempfile.new('mediaconch')
-    $policyfile.write(mcpolicy)
-    $policyfile.rewind
+  if ! defined? policy_file
+    policy_file = Tempfile.new('mediaconch')
+    policy_file.write(mc_policy)
+    policy_file.rewind
   end
-  policypath = $policyfile.path
-  command = "mediaconch --Policy=#{policypath} '#{input}'"
-  mcoutcome = `#{command}`
-  mcoutcome.strip!
-  mcoutcome.split('/n').each do |qcline|
-    $file_results << qcline
+  policy_path = policy_file.path
+  command = "mediaconch --Policy=#{policy_path} '#{input}'"
+  media_conch_out = `#{command}`
+  media_conch_out.strip!
+  media_conch_out.split('/n').each do |qcline|
+    @file_results << qcline
   end
 end
 
 # Function to scan audio stream characteristics
 def CheckAudioQuality(input)
-  $highdb = Array.new
-  $phasewarnings = Array.new
+  high_db = Array.new
+  phase_warnings = Array.new
   ffprobe_command = 'ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=reset=1:metadata=1,aphasemeter=video=0"'
-  ffprobeout = JSON.parse(`#{ffprobe_command}`)
-  ffprobeout['frames'].each do |frames|
+  ffprobe_out = JSON.parse(`#{ffprobe_command}`)
+  ffprobe_out['frames'].each do |frames|
     peaklevel = frames['tags']['lavfi.astats.Overall.Peak_level'].to_f
     audiophase = frames['tags']['lavfi.aphasemeter.phase'].to_f
     if peaklevel > -2.0
-      $highdb << peaklevel
+      high_db << peaklevel
     end
     if audiophase < -0.25
-      $phasewarnings << audiophase
+      phase_warnings << audiophase
     end
   end
-  if $highdb.count > 0
-    $file_results << "WARNING! Levels up to #{$highdb.max}"
-    $file_results << "#{$highdb.count} out of #{ffprobeout['frames'].count}"
+  if high_db.count > 0
+    @file_results << "WARNING! Levels up to #{high_db.max}"
+    @file_results << "#{high_db.count} out of #{ffprobe_out['frames'].count}"
   else
-    $file_results << 'Levels OK'
-    $file_results << 'Levels OK'
+    @file_results << 'Levels OK'
+    @file_results << 'Levels OK'
   end
-  if $phasewarnings.count > 50
-    $file_results << $phasewarnings.count
+  if phase_warnings.count > 50
+    @file_results << phase_warnings.count
   else
-    $file_results << 'Phase OK'
+    @file_results << 'Phase OK'
   end
 end
 fileinputs = Array.new
@@ -104,18 +104,18 @@ end
 
 fileinputs.each do |fileinput|
   fileinput = File.expand_path(fileinput)
-  $file_results << fileinput
+  @file_results << fileinput
   CheckAudioQuality(fileinput)
-  MediaConchScan(fileinput)
-  $write_to_csv << $file_results
-  $file_results = Array.new
+  media_conch_scan(fileinput)
+  @write_to_csv << @file_results
+  @file_results = Array.new
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
 CSV.open(File.expand_path("~/Desktop/audioqc-out_#{timestamp}.csv"), 'wb') do |csv|
   headers = ['Filename','Levels Warnings','Number of Frames w/ High Levels','Number of Phase Warnings','MediaConch Policy Compliance']
   csv << headers
-  $write_to_csv.each do |line|
+  @write_to_csv.each do |line|
     csv << line
   end
 end
