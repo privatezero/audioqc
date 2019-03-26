@@ -6,20 +6,20 @@ require 'csv'
 require 'optparse'
 
 ARGV.options do |opts|
-  opts.on("-p", "--Policy=val", String)  { |val| POLICY_FILE = val }
-  opts.on("-e", "--Extension=val", String)  { |val| TARGET_EXTENSION = val }
+  opts.on("-p", "--Policy=val", String) { |val| POLICY_FILE = val }
+  opts.on("-e", "--Extension=val", String) { |val| TARGET_EXTENSION = val }
   opts.parse!
 end
 
 # set up arrays and variables
-@file_results = Array.new
-@write_to_csv = Array.new
+@file_results = []
+@write_to_csv = []
 if ! defined? TARGET_EXTENSION
   TARGET_EXTENSION = 'wav'
 end
 
 # Set up mediaconch policy
-#Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
+# Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
 mc_policy = <<EOS
 <?xml version="1.0"?>
 <policy type="and" name="Audio: &quot;normal&quot; WAV?" license="CC-BY-4.0+">
@@ -60,8 +60,8 @@ if ! defined? POLICY_FILE
 end
 
 # Function to scan file for mediaconch compliance
-def media_conch_scan(input,policy)
-  policy_path = File.path(POLICY_FILE)
+def media_conch_scan(input, policy)
+  policy_path = File.path(policy)
   command = 'mediaconch --Policy=' + '"' + policy_path + '" ' + '"' + input + '"'
   media_conch_out = `#{command}`
   media_conch_out.strip!
@@ -72,8 +72,8 @@ end
 
 # Function to scan audio stream characteristics
 def check_audio_quality(input)
-  high_db = Array.new
-  phase_warnings = Array.new
+  high_db = []
+  phase_warnings = []
   ffprobe_command = 'ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=reset=1:metadata=1,aphasemeter=video=0"'
   ffprobe_out = JSON.parse(`#{ffprobe_command}`)
   ffprobe_out['frames'].each do |frames|
@@ -101,7 +101,7 @@ def check_audio_quality(input)
 end
 
 # Start of main script
-file_inputs = Array.new
+file_inputs = []
 
 ARGV.each do |input|
   if File.directory?(input)
@@ -109,10 +109,8 @@ ARGV.each do |input|
     targets.each do |file|
       file_inputs << file
     end
-  else
-    if File.extname(input).downcase == TARGET_EXTENSION.downcase
-      file_inputs << input
-    end
+  elsif File.extname(input).downcase == TARGET_EXTENSION.downcase
+    file_inputs << input
   end
   if file_inputs.empty?
     puts "No targets found for input: #{input}!"
@@ -124,16 +122,16 @@ file_inputs.each do |fileinput|
   fileinput = File.expand_path(fileinput)
   @file_results << fileinput
   check_audio_quality(fileinput)
-  media_conch_scan(fileinput,POLICY_FILE)
+  media_conch_scan(fileinput, POLICY_FILE)
   @write_to_csv << @file_results
-  @file_results = Array.new
+  @file_results = []
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
 output_csv = ENV['HOME'] + "/Desktop/audioqc-out_#{timestamp}.csv"
 
 CSV.open(output_csv, 'wb') do |csv|
-  headers = ['Filename','Levels Warnings','Number of Frames w/ High Levels','Number of Phase Warnings','MediaConch Policy Compliance']
+  headers = ['Filename', 'Levels Warnings', 'Number of Frames w/ High Levels', 'Number of Phase Warnings', 'MediaConch Policy Compliance']
   csv << headers
   @write_to_csv.each do |line|
     csv << line
