@@ -104,7 +104,7 @@ file_inputs = []
 
 ARGV.each do |input|
   if File.directory?(input)
-    targets = Dir["#{input}/*.{#{TARGET_EXTENSION.upcase},#{TARGET_EXTENSION.downcase}}"]
+    targets = Dir["#{input}/**/*.{#{TARGET_EXTENSION.upcase},#{TARGET_EXTENSION.downcase}}"]
     targets.each do |file|
       file_inputs << file
     end
