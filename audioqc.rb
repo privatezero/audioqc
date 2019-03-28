@@ -75,6 +75,7 @@ def check_audio_quality(input)
   phase_warnings = []
   ffprobe_command = 'ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=reset=1:metadata=1,aphasemeter=video=0"'
   ffprobe_out = JSON.parse(`#{ffprobe_command}`)
+  total_frame_count = ffprobe_out['frames'].count
   ffprobe_out['frames'].each do |frames|
     peaklevel = frames['tags']['lavfi.astats.Overall.Peak_level'].to_f
     audiophase = frames['tags']['lavfi.aphasemeter.phase'].to_f
@@ -87,13 +88,13 @@ def check_audio_quality(input)
   end
   if high_db.count > 0
     @file_results << "WARNING! Levels up to #{high_db.max}"
-    @file_results << "#{high_db.count} out of #{ffprobe_out['frames'].count}"
+    @file_results << "#{high_db.count} out of #{total_frame_count}"
   else
     @file_results << 'Levels OK'
     @file_results << 'Levels OK'
   end
   if phase_warnings.count > 50
-    @file_results << phase_warnings.count
+    @file_results << "#{phase_warnings.count} out of #{total_frame_count}"
   else
     @file_results << 'Phase OK'
   end
@@ -108,7 +109,7 @@ ARGV.each do |input|
     targets.each do |file|
       file_inputs << file
     end
-  elsif File.extname(input).downcase == TARGET_EXTENSION.downcase
+  elsif File.extname(input).downcase == '.' + TARGET_EXTENSION.downcase
     file_inputs << input
   end
   if file_inputs.empty?
