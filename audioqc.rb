@@ -22,10 +22,10 @@ if ! defined? TARGET_EXTENSION
 end
 
 # Start embedded WAV Mediaconch policy section
-# Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
+# Policy derived from MediaConch Public Policies. Original Maintainer Peter B. License: CC-BY-4.0+
 mc_policy = <<EOS
 <?xml version="1.0"?>
-<policy type="and" name="Audio: &quot;normal&quot; WAV?" license="CC-BY-4.0+">
+<policy type="and" name="Local Wave Policy" license="CC-BY-4.0+">
   <description>This is the common norm for WAVE audiofiles.&#xD;
 Any WAVs not matching this policy should be inspected and possibly normalized to conform to this.</description>
   <policy type="or" name="Signed Integer or Float?">
@@ -50,6 +50,12 @@ Any WAVs not matching this policy should be inspected and possibly normalized to
       <rule name="Audio is 32 bit?" value="BitDepth" tracktype="Audio" occurrence="*" operator="=">32</rule>
       <rule name="Audio is 8 bit?" value="BitDepth" tracktype="Audio" occurrence="*" operator="=">8</rule>
     </policy>
+  </policy>
+  <policy type="and" name="Is BFW?">
+    <rule name="BEXT Exist?" value="Wave/Broadcast extension/" occurrence="*" operator="exists" scope="mmt"/>
+  </policy>
+  <policy type="and" name="Valid File Size?">
+    <rule name="Size Limit" value="FileSize" tracktype="General" occurrence="*" operator="&lt;">4000000000</rule>
   </policy>
   <rule name="Container is RIFF (WAV)?" value="Format" tracktype="General" occurrence="*" operator="=">Wave</rule>
   <rule name="Encoding is linear PCM?" value="Format" tracktype="Audio" occurrence="*" operator="=">PCM</rule>
