@@ -5,6 +5,10 @@ require 'tempfile'
 require 'csv'
 require 'optparse'
 
+# This controls option flags
+# -p option allows you to select a custom mediaconch policy file - otherwise script uses default
+# -e allows you to select a target file extenstion for the script to use.
+# If no extenstion is specified it will target the default 'wav' extension. (Not case sensitive)
 ARGV.options do |opts|
   opts.on("-p", "--Policy=val", String) { |val| POLICY_FILE = val }
   opts.on("-e", "--Extension=val", String) { |val| TARGET_EXTENSION = val }
@@ -17,7 +21,7 @@ if ! defined? TARGET_EXTENSION
   TARGET_EXTENSION = 'wav'
 end
 
-# Set up mediaconch policy
+# Start embedded WAV Mediaconch policy section
 # Policy taken fromn MediaConch Public Policies. Maintainer Peter B. License: CC-BY-4.0+
 mc_policy = <<EOS
 <?xml version="1.0"?>
@@ -52,6 +56,8 @@ Any WAVs not matching this policy should be inspected and possibly normalized to
   <rule name="Audio is 'Little Endian'?" value="Format_Settings_Endianness" tracktype="Audio" occurrence="*" operator="=">Little</rule>
 </policy>
 EOS
+# End embedded WAV Mediaconch policy section
+
 if ! defined? POLICY_FILE
   POLICY_FILE = Tempfile.new('mediaConch')
   POLICY_FILE.write(mc_policy)
