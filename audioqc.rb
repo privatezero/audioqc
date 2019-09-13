@@ -72,55 +72,60 @@ end
 
 # Function to scan file for mediaconch compliance
 def media_conch_scan(input, policy)
+  qc_results = []
   policy_path = File.path(policy)
   command = 'mediaconch --Policy=' + '"' + policy_path + '" ' + '"' + input + '"'
   media_conch_out = `#{command}`
   media_conch_out.strip!
   media_conch_out.split('/n').each do |qcline|
-    @file_results << qcline
+    qc_results << qcline
   end
+  return qc_results
 end
 
-# Function to scan audio stream characteristics
-def check_audio_quality(input)
-  high_db = []
-  phase_warnings = []
-  ffprobe_command = 'ffprobe -print_format json -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=reset=1:metadata=1,aphasemeter=video=0"'
+# Functions to scan audio stream characteristics
+# Function to get ffprobe json info
+def get_ffprobe(input)
+  ffprobe_command = 'ffprobe -print_format json -threads auto -show_entries frame_tags=lavfi.astats.Overall.Peak_level,lavfi.aphasemeter.phase -f lavfi -i "amovie=' + "'" + input + "'" + ',astats=reset=1:metadata=1,aphasemeter=video=0"'
   ffprobe_out = JSON.parse(`#{ffprobe_command}`)
-  total_frame_count = ffprobe_out['frames'].count
-  ffprobe_out['frames'].each do |frames|
-    peaklevel = frames['tags']['lavfi.astats.Overall.Peak_level'].to_f
-    audiophase = frames['tags']['lavfi.aphasemeter.phase'].to_f
-    if peaklevel > -2.0
-      high_db << peaklevel
-    end
-    if audiophase < -0.25
-      phase_warnings << audiophase
-    end
-  end
-  if high_db.count > 0
-    @file_results << "WARNING! Levels up to #{high_db.max}"
-    @file_results << "#{high_db.count} out of #{total_frame_count}"
-  else
-    @file_results << 'Levels OK'
-    @file_results << 'Levels OK'
-  end
-  if phase_warnings.count > 50
-    @file_results << "#{phase_warnings.count} out of #{total_frame_count}"
-  else
-    @file_results << 'Phase OK'
-  end
 end
 
-# Start of main script
-file_inputs = []
+def parse_ffprobe_peak_levels(ffprobe_data)
+  high_db_frames = []
+  levels = []
+  ffprobe_data['frames'].each do |frames|
+    peaklevel = frames['tags']['lavfi.astats.Overall.Peak_level'].to_f
+    if peaklevel > -2.0
+      high_db_frames << peaklevel
+    else
+      levels << peaklevel
+    end
+  end
+  return high_db_frames,levels.max
+end
 
+def parse_ffprobe_phase(ffprobe_data)
+  out_of_phase_frames = []
+  ffprobe_data['frames'].each do |frames|
+    audiophase = frames['tags']['lavfi.aphasemeter.phase'].to_f
+    if audiophase < -0.25
+      out_of_phase_frames << audiophase
+    end
+  end
+  return out_of_phase_frames
+end
+
+
+# Make list of inputs
+file_inputs = []
 ARGV.each do |input|
+  # If input is directory, recursively add all files with target extension to target list
   if File.directory?(input)
     targets = Dir["#{input}/**/*.{#{TARGET_EXTENSION.upcase},#{TARGET_EXTENSION.downcase}}"]
     targets.each do |file|
       file_inputs << file
     end
+  # If input is file, add it to target list (if extension matches target extension)
   elsif File.extname(input).downcase == '.' + TARGET_EXTENSION.downcase
     file_inputs << input
   end
@@ -131,19 +136,31 @@ ARGV.each do |input|
 end
 
 file_inputs.each do |fileinput|
-  @file_results = []
+  warnings = []
   fileinput = File.expand_path(fileinput)
-  @file_results << fileinput
-  check_audio_quality(fileinput)
-  media_conch_scan(fileinput, POLICY_FILE)
-  @write_to_csv << @file_results
+  ffprobe_out = get_ffprobe(fileinput)
+  total_frame_count = ffprobe_out['frames'].count
+  level_info = parse_ffprobe_peak_levels(ffprobe_out)
+  max_level = level_info[1]
+  dangerous_levels = level_info[0]
+  phase_fails = parse_ffprobe_phase(ffprobe_out)
+  media_conch_results = media_conch_scan(fileinput, POLICY_FILE)
+  if dangerous_levels.count > 0
+    warnings << 'LEVEL WARNING'
+  end
+
+  if phase_fails.count > 50
+    warnings << 'PHASE WARNING'
+  end
+
+  @write_to_csv << [fileinput,warnings,max_level,dangerous_levels.count,phase_fails.count,media_conch_results]
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
 output_csv = ENV['HOME'] + "/Desktop/audioqc-out_#{timestamp}.csv"
 
 CSV.open(output_csv, 'wb') do |csv|
-  headers = ['Filename', 'Levels Warnings', 'Number of Frames w/ High Levels', 'Number of Phase Warnings', 'MediaConch Policy Compliance']
+  headers = ['Filename', 'Warnings', 'Peak Level', 'Number of Frames w/ High Levels', 'Number of Phase Warnings', 'MediaConch Policy Compliance']
   csv << headers
   @write_to_csv.each do |line|
     csv << line
