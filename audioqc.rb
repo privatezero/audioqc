@@ -4,6 +4,7 @@ require 'json'
 require 'tempfile'
 require 'csv'
 require 'optparse'
+require 'mediainfo'
 
 # This controls option flags
 # -p option allows you to select a custom mediaconch policy file - otherwise script uses default
@@ -90,6 +91,15 @@ def get_ffprobe(input)
   ffprobe_out = JSON.parse(`#{ffprobe_command}`)
 end
 
+def get_mediainfo(input)
+  mediainfo_out = MediaInfo.from(input)
+  return mediainfo_out
+end
+
+def parse_duration(duration_milliseconds)
+  Time.at( duration_milliseconds / 1000 ).utc.strftime("%H:%M:%S")
+end
+
 def parse_ffprobe_peak_levels(ffprobe_data)
   high_db_frames = []
   levels = []
@@ -139,6 +149,8 @@ file_inputs.each do |fileinput|
   warnings = []
   fileinput = File.expand_path(fileinput)
   ffprobe_out = get_ffprobe(fileinput)
+  mediainfo_out = get_mediainfo(fileinput)
+  duration_normalized = parse_duration(mediainfo_out.audio.duration)
   total_frame_count = ffprobe_out['frames'].count
   level_info = parse_ffprobe_peak_levels(ffprobe_out)
   max_level = level_info[1]
@@ -153,14 +165,14 @@ file_inputs.each do |fileinput|
     warnings << 'PHASE WARNING'
   end
 
-  @write_to_csv << [fileinput,warnings,max_level,dangerous_levels.count,phase_fails.count,media_conch_results]
+  @write_to_csv << [fileinput, warnings, duration_normalized, max_level, dangerous_levels.count, phase_fails.count, media_conch_results]
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
 output_csv = ENV['HOME'] + "/Desktop/audioqc-out_#{timestamp}.csv"
 
 CSV.open(output_csv, 'wb') do |csv|
-  headers = ['Filename', 'Warnings', 'Peak Level', 'Number of Frames w/ High Levels', 'Number of Phase Warnings', 'MediaConch Policy Compliance']
+  headers = ['Filename', 'Warnings', 'Duration', 'Peak Level', 'Number of Frames w/ High Levels', 'Number of Phase Warnings', 'MediaConch Policy Compliance']
   csv << headers
   @write_to_csv.each do |line|
     csv << line

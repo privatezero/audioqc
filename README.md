@@ -1,6 +1,7 @@
 # audioqc
 
-Depends on: FFprobe and Mediaconch
+Depends on: FFprobe, Mediaconch, Media Info
+Needed Gems: mediainfo
 
 Usage:  `audioqc.rb [options] TARGET`
 
