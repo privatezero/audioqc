@@ -96,6 +96,29 @@ def get_mediainfo(input)
   return mediainfo_out
 end
 
+def qc_encoding_history(mediainfo_out)
+  enc_hist_error = []
+  unless mediainfo_out.general.extra.nil?
+    if mediainfo_out.general.extra.bext_present == "Yes"
+      if mediainfo_out.audio.channels == 1
+        mono_count = mediainfo_out.general.encoded_library_settings.scan(/mono/).count
+        unless mono_count == 2
+          enc_hist_error << "BEXT Coding History channels don't match file"
+        end
+      end
+
+      if mediainfo_out.audio.channels == 2
+        stereo_count = mediainfo_out.general.encoded_library_settings.scan(/stereo/).count
+        dual_count = mediainfo_out.general.encoded_library_settings.scan(/dual/).count
+        unless ( stereo_count + dual_count == 2 )
+          enc_hist_error << "BEXT Coding History channels don't match file"
+        end
+      end
+    end
+  end
+  return enc_hist_error
+end
+
 def parse_duration(duration_milliseconds)
   Time.at( duration_milliseconds / 1000 ).utc.strftime("%H:%M:%S")
 end
@@ -151,21 +174,21 @@ file_inputs.each do |fileinput|
   ffprobe_out = get_ffprobe(fileinput)
   mediainfo_out = get_mediainfo(fileinput)
   duration_normalized = parse_duration(mediainfo_out.audio.duration)
+  encoding_hist_error = qc_encoding_history(mediainfo_out)
   total_frame_count = ffprobe_out['frames'].count
   level_info = parse_ffprobe_peak_levels(ffprobe_out)
   max_level = level_info[1]
   dangerous_levels = level_info[0]
   phase_fails = parse_ffprobe_phase(ffprobe_out)
   media_conch_results = media_conch_scan(fileinput, POLICY_FILE)
-  if dangerous_levels.count > 0
+  if encoding_hist_error.count > 0 
+    warnings  << encoding_hist_error
+  elsif dangerous_levels.count > 0
     warnings << 'LEVEL WARNING'
-  end
-
-  if phase_fails.count > 50
+  elsif phase_fails.count > 50
     warnings << 'PHASE WARNING'
   end
-
-  @write_to_csv << [fileinput, warnings, duration_normalized, max_level, dangerous_levels.count, phase_fails.count, media_conch_results]
+  @write_to_csv << [fileinput, warnings.flatten, duration_normalized, max_level, dangerous_levels.count, phase_fails.count, media_conch_results]
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
