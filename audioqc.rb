@@ -99,7 +99,7 @@ end
 def qc_encoding_history(mediainfo_out)
   enc_hist_error = []
   unless mediainfo_out.general.extra.nil?
-    if mediainfo_out.general.extra.bext_present == 'Yes'
+    if mediainfo_out.general.extra.bext_present == 'Yes' && mediainfo_out.general.encoded_library_settings
       if mediainfo_out.audio.channels == 1
         mono_count = mediainfo_out.general.encoded_library_settings.scan(/mono/).count
         unless mono_count == 2
@@ -180,7 +180,10 @@ file_inputs.each do |fileinput|
   max_level = level_info[1]
   dangerous_levels = level_info[0]
   phase_fails = parse_ffprobe_phase(ffprobe_out)
-  media_conch_results = media_conch_scan(fileinput, POLICY_FILE)
+  media_conch_results = media_conch_scan(fileinput, POLICY_FILE).to_s
+  if media_conch_results.include?('pass!')
+    media_conch_results = 'PASS'
+  end
   if encoding_hist_error.count > 0 
     warnings  << encoding_hist_error
   elsif dangerous_levels.count > 0
