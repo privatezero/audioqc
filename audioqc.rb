@@ -99,7 +99,7 @@ end
 def qc_encoding_history(mediainfo_out)
   enc_hist_error = []
   unless mediainfo_out.general.extra.nil?
-    if mediainfo_out.general.extra.bext_present == "Yes"
+    if mediainfo_out.general.extra.bext_present == 'Yes'
       if mediainfo_out.audio.channels == 1
         mono_count = mediainfo_out.general.encoded_library_settings.scan(/mono/).count
         unless mono_count == 2
@@ -110,7 +110,7 @@ def qc_encoding_history(mediainfo_out)
       if mediainfo_out.audio.channels == 2
         stereo_count = mediainfo_out.general.encoded_library_settings.scan(/stereo/).count
         dual_count = mediainfo_out.general.encoded_library_settings.scan(/dual/).count
-        unless ( stereo_count + dual_count == 2 )
+        unless stereo_count + dual_count == 2
           enc_hist_error << "BEXT Coding History channels don't match file"
         end
       end
@@ -120,7 +120,7 @@ def qc_encoding_history(mediainfo_out)
 end
 
 def parse_duration(duration_milliseconds)
-  Time.at( duration_milliseconds / 1000 ).utc.strftime("%H:%M:%S")
+  Time.at(duration_milliseconds / 1000).utc.strftime("%H:%M:%S")
 end
 
 def parse_ffprobe_peak_levels(ffprobe_data)
@@ -134,7 +134,7 @@ def parse_ffprobe_peak_levels(ffprobe_data)
       levels << peaklevel
     end
   end
-  return high_db_frames,levels.max
+  return high_db_frames, levels.max
 end
 
 def parse_ffprobe_phase(ffprobe_data)
