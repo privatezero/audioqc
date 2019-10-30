@@ -13,6 +13,7 @@ require 'mediainfo'
 ARGV.options do |opts|
   opts.on("-p", "--Policy=val", String) { |val| POLICY_FILE = val }
   opts.on("-e", "--Extension=val", String) { |val| TARGET_EXTENSION = val }
+  opts.on("-q", "--Quiet") { Quiet = true}
   opts.parse!
 end
 
@@ -159,13 +160,16 @@ ARGV.each do |input|
       file_inputs << file
     end
   # If input is file, add it to target list (if extension matches target extension)
-  elsif File.extname(input).downcase == '.' + TARGET_EXTENSION.downcase
+  elsif File.extname(input).downcase == '.' + TARGET_EXTENSION.downcase && File.exist?(input)
     file_inputs << input
+  else
+    puts "Input: #{input} not found!"
   end
-  if file_inputs.empty?
-    puts "No targets found for input: #{input}!"
-    next
-  end
+end
+
+if file_inputs.empty?
+  puts "No targets found!"
+  exit
 end
 
 file_inputs.each do |fileinput|
@@ -191,7 +195,16 @@ file_inputs.each do |fileinput|
   elsif phase_fails.count > 50
     warnings << 'PHASE WARNING'
   end
-  @write_to_csv << [fileinput, warnings.flatten, duration_normalized, max_level, dangerous_levels.count, phase_fails.count, media_conch_results]
+  if Quiet && warnings.empty?
+    puts "QC Pass!"
+    exit 0
+  elsif Quiet
+    puts "QC Fail!"
+    puts warnings
+    exit 1 
+  else
+    @write_to_csv << [fileinput, warnings.flatten, duration_normalized, max_level, dangerous_levels.count, phase_fails.count, media_conch_results]
+  end
 end
 
 timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
